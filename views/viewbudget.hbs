@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="./public/css/budget2.css">
+    <title>Create Budget</title>
+    <style>
+        body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+.header {
+    background-color: #001F3F; /* Dark Blue */
+    color: white;
+    padding: 20px;
+    height: 120px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header img {
+    height: 100%;
+    max-width: 100%;
+    margin-bottom: 20px;
+    margin-left: 10px;
+}
+
+.navigation {
+    width: 100%;
+    height: 40px;
+    display: flex;
+    background-color: #98D640;
+    margin-top: 5px;
+}
+
+.navigation a {
+    text-decoration: none;
+    color: white;
+    padding: 10px;
+    font-size: 18px;
+}
+
+.navigation a:hover {
+    background-color: #001F3F;
+    color: white;
+}
+
+.bodycontent {
+    height: 600px;
+    width: 80%;
+    float: right;
+}
+
+.footer {
+    background-color: #001F3F;
+    height: 100px;
+    text-align: center;
+    text-decoration: none;
+    color: white;
+    clear: both;
+}
+
+.footer a {
+    text-decoration: none;
+    color: white;
+    padding: 10px;
+    font-size: 14px;
+}
+.footer a:hover {
+    color: gold;
+
+}
+
+.tm {
+    font-size: 12px;
+}
+.tm:hover {
+    color: gold;
+
+}
+.auth-buttons {
+    display: flex;
+    gap: 20px;
+}
+
+.auth-buttons button {
+    background-color: #001F3F;
+    color: white;
+    border: none;
+    padding: 10px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.auth-buttons button:hover {
+    background-color: white; /* white on hover */
+    color: #001F3F;
+    border-radius: 10%;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    list-style: none;
+    text-decoration: none;
+}
+
+.sidebar {
+    width: 17%;
+    height: 100vh;
+    background-color: #9300ff;
+    float: left;
+    top: 120px;
+    margin-top: 5px; /* Adjusted based on the header height */
+}
+
+ul {
+    list-style: none;
+    
+    margin-left: -20px;
+}
+
+li {
+    margin-left: -10px;
+    padding: 10px;
+    text-decoration: none;
+    color: white;
+    display: block;
+    font-size: 20px;
+    color: white;
+    box-sizing: border-box;
+    height: 50px;
+    border-bottom: 1px solid #333333;
+    transition: .4s;
+    
+}
+
+.sidebar ul li a {
+    padding-left: 20px;
+    text-decoration: none;
+    color: white;
+    font-size: 20px;
+    
+}
+
+.sidebar header{
+    font-size: 22px;
+    color: White;
+    text-align: center;
+    line-height: 40px;
+    background-color: #001F3F;
+    user-select: none;
+    height: 50px;
+    margin-top: 5px;
+}
+
+ul li:hover a{
+    padding-left: 25px; 
+}
+
+.budget-form {
+    width: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.budget-form label {
+    margin-bottom: 2px;
+    
+    font-weight: bold;
+}
+
+.budget-form input {
+    margin-bottom: 10px;
+    padding: 8px;
+    
+    width: calc(100% - 20px); /* Adjust the width as needed */
+}
+
+.save-btn, .edit-btn {
+    padding: 10px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    width: 120px;
+    font-size: 16px;
+    margin-right: 10px;
+}
+
+.save-btn {
+    background-color: #E0115F;
+    color: white;
+}
+
+.edit-btn {
+    background-color: white;
+    color: #E0115F;
+    border: 2px solid #E0115F; /* Pink border */
+}
+
+.footer {
+    background-color: #001F3F;
+    height: 100px;
+    text-align: center;
+    text-decoration: none;
+    color: white;
+}
+
+.footer a {
+    text-decoration: none;
+    color: white;
+    padding: 10px;
+    font-size: 14px;
+}
+
+.tm {
+    font-size: 12px;
+}
+
+.header img {
+    height: 100%;
+    max-width: 100%;
+    margin-bottom: 20px;
+    margin-left: 10px;
+}
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <img src="logo.PNG" alt="">
+        <div class="auth-buttons">
+            <a href="/profile-page"> <button><i class="fa fa-user-circle" aria-hidden="true"> </i>    User Profile</button> </a>
+            <a href="/logout"><button>Log Out   <i class="fa fa-sign-out" aria-hidden="true"></i></button> </a>
+            
+        </div>
+    </div>
+
+    <div class="navigation">
+        <!-- Add your navigation links here -->
+        <a href="/home-page" >Home</a>
+        <a href="/budget-page" style="background-color: #001F3F;">Budget</a>
+        <a href="/income-page" >Income</a>
+        <a href="/expenses-page">Expenses</a>
+        <a href="/savings-page" >Savings</a>
+        <a href="/loans-page">Loans</a>
+        <a href="#">How it works</a>
+    </div>
+   
+
+    <div class="sidebar">
+        <header>My App</header>
+        <ul>
+            <li><a href="#"><i class="fa fa-home" aria-hidden="true"></i></iclass>    Home</a></li>
+            <li><a href="#"><i class="fa fa-bell" aria-hidden="true"> </i>    Notifications</a></li>
+            <li><a href="/graph-page"><i class="fa fa-bar-chart" aria-hidden="true"></i>    Graphs</a></li>
+            <li><a href="/profile-page"><i class="fa fa-user-circle" aria-hidden="true"> </i>  User Profile</a></li>
+            <li><a href="#"><i class="fa fa-phone" aria-hidden="true"></i> Contact Us</a></li>
+            <li><a href="/logout"><i class="fa fa-sign-out" aria-hidden="true"> </i>   Log Out</a></li>
+        </ul>
+    </div>
+
+
+    <div class="bodycontent">
+<h2>
+    Your current Budget Monthly
+</h2>
+        <div class="budget-form">
+            
+            <ul>
+                <li style="color:#001F3F">Household: <span id="amount1">0.00</span></li>
+                <li style="color:#001F3F">Utilities: <span id="amount2">0.00</span></li>
+                <li style="color:#001F3F">Health: <span id="amount3">0.00</span></li>
+                <li style="color:#001F3F">Insurance: <span id="amount4">0.00</span></li>
+                <li style="color:#001F3F">Leisure: <span id="amount5">0.00</span></li>
+                <li style="color:#001F3F">Savings: <span id="amount6">0.00</span></li>
+                <li style="color:#001F3F">Other: <span id="amount7">0.00</span></li>
+            </ul>
+            <p>Total Budget: KES   <span id="budgetTotal">0.00</span></p>
+
+    </div>
+    <div class="footer">
+        <a href="#">Privacy Policy</a>
+        <a href="#">About E-Finance</a>
+        <a href="#">Contact E-Finance</a>
+        <a href="#">FAQs</a>
+        <div class="tm">
+            Griffin Inc&trade;
+        </div>
+    </div>
+
+<script>
+  // Function to fetch and display budget data
+  async function fetchAndDisplayBudget() {
+    try {
+      const response = await fetch('/display-budget');
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch budget data');
+      }
+
+      const data = await response.json();
+
+      // Update your HTML elements with the fetched budget data
+      updateBudgetData(data);
+    } catch (error) {
+      console.error('Error:', error.message);
+    }
+  }
+
+  // Function to update HTML elements with budget data
+  function updateBudgetData(data) {
+    document.getElementById('amount1').innerText = data.amount1.toFixed(2);
+    document.getElementById('amount2').innerText = data.amount2.toFixed(2);
+    document.getElementById('amount3').innerText = data.amount3.toFixed(2);
+    document.getElementById('amount4').innerText = data.amount4.toFixed(2);
+    document.getElementById('amount5').innerText = data.amount5.toFixed(2);
+    document.getElementById('amount6').innerText = data.amount6.toFixed(2);
+    document.getElementById('amount7').innerText = data.amount7.toFixed(2);
+    document.getElementById('budgetTotal').innerText = data.budgetTotal.toFixed(2);
+  }
+
+  // Call the function when the window is loaded
+  window.onload = fetchAndDisplayBudget;
+</script>
+
+
+</body>
+
+</html>
