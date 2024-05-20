@@ -1,0 +1,962 @@
+const express = require('express');
+const app = express();
+const port = 3400; // Change this to your desired port number
+const mysql = require('mysql');
+const path = require('path');
+const bodyparser = require("body-parser");
+app.use(bodyparser.json())
+app.use(bodyparser.urlencoded({ entended: false }))
+const crypto = require('crypto')
+const uuid4 = require('uuid4')
+const fs = require('fs')
+
+const cookieParser = require("cookie-parser");
+const sessions = require('express-session');
+const { log, error } = require('console');
+const moment = require('moment')
+const filestore = require("session-file-store")(sessions)
+const multer = require('multer');
+const cors = require('cors')
+const oneDay = 1000 * 60 * 60 * 24;
+const oneHour = 1000 * 60 * 60;
+const oneMinute = 1000 * 60;
+
+const Security = require('./Security')
+
+// app.use(express.json({ limit: '50mb' }));
+// app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({extended: true }));
+
+
+app.use(cors())
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// Setting up the project
+app.set('views', 'views') // Where the pages are going to be stored
+app.set('view engine', 'hbs') // The view engine used
+app.use(express.static('public')) //The folder for the assests
+
+// cookie parser middleware
+app.use(cookieParser());
+
+//session middleware
+app.use(sessions({
+  name: "User_Session",
+  secret: "8Ge2xLWOImX2HP7R1jVy9AmIT0ZN68oSH4QXIyRZyVqtcl4z1I",
+  saveUninitialized: false,
+  cookie: { maxAge: oneDay, httpOnly: false },
+  resave: false,
+  store: new filestore({ logFn: function() {} }),
+  path: "/sessions/"
+}));
+
+// var session;
+var message
+//mysql connection
+const connection = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'e_finance',
+});
+
+connection.connect((err) => {
+  if (err) throw err;
+  console.log('Connected to the database');
+});
+
+// Middleware
+function checkAuth(request, response, next){
+  const {user} = request.cookies
+}
+
+
+// The Home page
+app.get('/', (request, response) => {
+  response.render('./login')
+});
+
+
+// Configure file upload storage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+      cb(null, 'uploads/') // Upload files to the 'uploads' directory
+  },
+  filename: function (req, file, cb) {
+      cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname))
+  }
+});
+
+// Create a multer instance with the storage configuration
+const upload = multer({ dest:'./uploads' });
+// const upload = multer({ storage: storage });
+
+module.exports = upload;
+
+//generate user id
+function generateUserID() {
+  const counter = 1000; // Starting counter
+  return 'EF' + (counter + 1); // Append 'EF' to the counter
+}
+
+// Middleware to check authentication
+function checkAuth(req, res, next) {
+  if (!req.session.userID) {
+    // Redirect to login page if not authenticated
+    res.redirect('/');
+  } else {
+    // Continue to the next middleware or route handler
+    next();
+  }
+}
+
+
+
+//Signup Page
+app.get('/sign-up-page', (request, response) => {
+  response.render('./sign-up')
+})
+
+//Handles login route
+app.post('/login', (req, res) => {
+  const { email, password } = req.body;
+
+  const query = 'SELECT * FROM users WHERE email = ?';
+
+  connection.query(query, [email], (error, results, fields) => {
+    if (error) {
+      console.error('Error retrieving data from the database: ' + error.stack);
+      res.status(500).send('Error retrieving data from the database');
+      return;
+    }
+
+    if (results.length === 0) {
+      console.log('No user found with that email');
+      res.status(404).send('No user found with that email');
+      return;
+    }
+
+    // Retrieve the password from the database
+    const storedPassword = results[0].password;
+
+    // Compare the entered password with the stored password
+    if (password === storedPassword) {
+      console.log('Successful login');
+      res.redirect('/home-page');
+    } else {
+      console.log('Incorrect password');
+      res.status(401).send('Incorrect password');
+    }
+  });
+});
+
+app.post('/signup', (req, res) => {
+  const { email, password } = req.body;
+
+  // Check if the email already exists in the database
+  const query = 'SELECT * FROM users WHERE email = ?';
+  connection.query(query, [email], (error, results, fields) => {
+    if (error) {
+      console.error('Error retrieving data from the database: ' + error.stack);
+      res.status(500).send('Error retrieving data from the database');
+      return;
+    }
+
+    if (results.length !== 0) {
+      console.log('User with that email already exists');
+      res.status(409).send('User with that email already exists');
+      return;
+    }
+
+    // Store the user's data in the database
+    const userID = generateUserID();
+    const insertQuery = 'INSERT INTO users (userId, email, password) VALUES (?, ?, ?)';
+    connection.query(insertQuery, [userID, email, password], (error, results, fields) => {
+      if (error) {
+        console.error('Error storing data in the database: ' + error.stack);
+        res.status(500).send('Error storing data in the database');
+        return;
+      }
+
+      // Store the user's data in the session
+      req.session.userID = userID;
+      req.session.userEmail = email;
+
+      console.log('User created successfully');
+      res.redirect('/');
+    });
+  });
+});
+
+
+//Enter user income
+app.post('/add-Income', checkAuth, (req, res) => {
+  const { amount } = req.body;
+  const userId = req.session.userID;
+
+  const query = 'INSERT INTO userincome (userId, amount) VALUES (?, ?)';
+  connection.query(query, [userId, amount], (error, results, fields) => {
+    if (error) {
+      console.error('Error inserting data into the database: ' + error.stack);
+      res.status(500).send('Error inserting data into the database');
+      return;
+    }
+
+    console.log('Income added successfully');
+    res.status(200).send('Income added successfully');
+  });
+});
+
+app.get('/home-page', (request, response) => {
+  response.render('home')
+})
+
+app.get('/income-page', (request, response) => {
+  response.render('./income')
+})
+
+app.get('/profile-page', (request, response) => {
+  response.render('profile')
+})
+
+app.get('/loans-page', checkAuth, (request, response) => {
+  response.render('loans')
+})
+
+app.get('/savings-page', checkAuth, (request, response) => {
+  response.render('savings')
+})
+
+//graph route
+app.get('/graphs-page', checkAuth, (request, response) => {
+  response.render('graph')
+})
+
+
+//send user session info
+app.get('/get-session-user', (request, response) => {
+  response.send(request.session.user)
+})
+
+
+
+//Logout route
+app.get('/logout', (request, response) => {
+   
+  request.session.destroy((err) => {
+      message = null
+
+      if (err) throw err;
+      request.session = null;
+      response.clearCookie('user')
+      response.clearCookie('User_Session')
+      response.redirect('/')
+  })
+})
+
+//server listening
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+
+
+
+
+
+
+
+res.cookie('userEmail', req.body.email, {
+  maxAge: 3600000, // Set cookie expiration time in milliseconds (1 hour in this case)
+  httpOnly: true, // Prevent JavaScript access to the cookie for enhanced security
+  secure: true // Set secure flag to only transmit cookies over HTTPS connections
+});
+
+const sessionId = req.cookies.sessionId;
+const userEmail = req.cookies.userEmail;
+
+
+
+
+
+const express = require('express');
+const app = express();
+const port = 3400; // Change this to your desired port number
+const mysql = require('mysql');
+const path = require('path');
+const bodyparser = require("body-parser");
+app.use(bodyparser.json())
+app.use(bodyparser.urlencoded({ entended: false }))
+const crypto = require('crypto')
+const uuid4 = require('uuid4')
+const fs = require('fs')
+
+const cookieParser = require("cookie-parser");
+const sessions = require('express-session');
+const { log, error } = require('console');
+const moment = require('moment')
+const filestore = require("session-file-store")(sessions)
+const multer = require('multer');
+const cors = require('cors')
+const oneDay = 1000 * 60 * 60 * 24;
+const oneHour = 1000 * 60 * 60;
+const oneMinute = 1000 * 60;
+
+app.use(sessions({
+  name: "User_Session",
+  secret: "8Ge2xLWOImX2HP7R1jVy9AmIT0ZN68oSH4QXIyRZyVqtcl4z1I",
+  saveUninitialized: false,
+  cookie: { maxAge: oneDay, httpOnly: false },
+  resave: false,
+  store: new filestore({ logFn: function() {} }),
+  path: "/sessions/"
+}));
+
+const{createTokens, validateToken} = require('./JWT')
+
+// app.use(express.json({ limit: '50mb' }));
+// app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({extended: true }));
+
+
+app.use(cors())
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// Setting up the project
+app.set('views', 'views') // Where the pages are going to be stored
+app.set('view engine', 'hbs') // The view engine used
+app.use(express.static('public')) //The folder for the assests
+
+// cookie parser middleware
+app.use(cookieParser('mySecret'));
+
+//mysql connection
+const connection = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'e_finance',
+});
+
+connection.connect((err) => {
+  if (err) throw err;
+  console.log('Connected to the database');
+});
+
+
+// The Home page
+app.get('/', (request, response) => {
+  (request.session.userID) 
+  response.render('./login');
+});
+
+
+
+async function getUserByEmail(email) {
+  const query = 'SELECT * FROM users WHERE email = ?';
+  const results = await queryAsync(query, [email]);
+
+  // Assuming the query returns an array of user objects
+  return results[0];
+}
+
+//generate user id
+async function generateUserID() {
+  let counter = 1000; // Starting counter
+
+  while (true) {
+    const userID = 'EF' + (counter + 1);
+    const userExists = await checkUserExists(userID);
+    if (!userExists) {
+      return userID;
+    }
+    counter++;
+  }
+}
+
+// Function to check if the user with given userID exists
+async function checkUserExists(userID) {
+  return new Promise((resolve, reject) => {
+    const query = 'SELECT COUNT(*) as count FROM users WHERE userId = ?';
+    connection.query(query, [userID], (error, results) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(results[0].count > 0);
+      }
+    });
+  });
+}
+
+async function insertUser(userID, email, password) {
+  const query = 'INSERT INTO users (userId, email, password) VALUES (?, ?, ?)';
+  await queryAsync(query, [userID, email, password]);
+}
+
+
+//Signup Page
+app.get('/sign-up-page', (request, response) => {
+  response.render('./sign-up')
+})
+
+//Handles login route
+app.post('/login', (req, res) => {
+  const { email, password } = req.body;
+
+  const query = 'SELECT * FROM users WHERE email = ?';
+
+  connection.query(query, [email], (error, results, fields) => {
+    if (error) {
+      console.error('Error retrieving data from the database: ' + error.stack);
+      res.status(500).send('Error retrieving data from the database');
+      return;
+    }
+
+    if (results.length === 0) {
+      console.log('No user found with that email');
+      res.status(404).send('No user found with that email');
+      return;
+    }
+
+    // Retrieve the password from the database
+    const storedPassword = results[0].password;
+
+    // Compare the entered password with the stored password
+    if (password === storedPassword) {
+      console.log('Successful login');
+
+      const accessToken = createTokens(results[0]);
+
+      res.cookie("access-token", accessToken,{
+        maxAge:60*60*24*30*1000,
+        httpOnly:true
+      });
+      res.redirect('/home-page');
+    } else {
+      console.log('Incorrect password');
+      res.status(401).send('Incorrect password');
+    }
+  });
+});
+
+
+// Signup route without bcrypt
+app.post('/signup', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const existingUser = await getUserByEmail(email);
+
+    if (existingUser) {
+      console.log('User with that email already exists');
+      res.status(409).send('User with that email already exists');
+      return;
+    }
+
+    const userID = await generateUserID();
+
+    // For simplicity, store the password as-is (not recommended in production)
+    const hashedPassword = password;
+
+    await insertUser(userID, email, hashedPassword);
+
+    // Store the user's data in the session
+    req.session.userID = userID;
+    req.session.userEmail = email;
+
+    console.log('User created successfully');
+    res.redirect('/');
+  } catch (error) {
+    console.error('Error during signup:', error.stack);
+    res.status(500).send('Error during signup');
+  }
+});
+
+// Login route without bcrypt
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await getUserByEmail(email);
+
+    if (!user) {
+      return res.status(404).send('No user found with that email');
+    }
+
+    // For simplicity, compare passwords as-is (not recommended in production)
+    const passwordMatch = password === user.password;
+
+    if (passwordMatch) {
+      console.log('Successful login');
+      const accessToken = createTokens(user);
+
+      res.cookie('access-token', accessToken, {
+        maxAge: 60 * 60 * 24 * 30 * 1000,
+        httpOnly: true,
+      });
+
+      res.redirect('/home-page');
+    } else {
+      console.log('Incorrect password');
+      res.status(401).send('Incorrect password');
+    }
+  } catch (error) {
+    console.error('Error during login:', error.stack);
+    res.status(500).send('Error during login');
+  }
+});
+
+//Enter user income
+// Add income
+app.post('/add-Income', validateToken, async(req, res) => {
+  const { amount } = req.body;
+  const userId = req.session.userID;
+
+  if(!userId){
+    return res.status(401).send('Unauthorized');
+  }
+  const query = 'INSERT INTO userincome (userId, amount) VALUES (?, ?)';
+  connection.query(query, [userId, amount], (error, results, fields) => {
+    if (error) {
+      console.error('Error inserting data into the database:', error.stack);
+      res.status(500).send('Error inserting data into the database');
+      return;
+    }
+
+    console.log('Income added successfully');
+    res.status(200).send('Income added successfully');
+  });
+});
+
+app.get('/home-page', validateToken,(request, response) => {
+  response.render('home')
+})
+
+app.get('/income-page', (request, response) => {
+  response.render('income')
+})
+
+app.get('/profile-page', (request, response) => {
+  response.render('profile')
+})
+
+app.get('/loans-page', (request, response) => {
+  response.render('loans')
+})
+
+app.get('/savings-page', (request, response) => {
+  response.render('savings')
+})
+
+//graph route
+app.get('/graphs-page',(request, response) => {
+  response.render('graph')
+})
+
+
+//send user session info
+app.get('/get-session-user', (request, response) => {
+  const userSession = {
+    
+      userID: request.session.userID,
+      userEmail: request.session.userEmail,
+    
+
+  } 
+  response.send(userSession);
+});
+
+async function queryAsync(query, values) {
+  return new Promise((resolve, reject) => {
+    connection.query(query, values, (error, results, fields) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(results);
+      }
+    });
+  });
+}
+
+
+//Logout route
+app.get('/logout', (request, response) => {
+  request.session.destroy((err) => {
+    if (err) throw err;
+
+    response.clearCookie('access-token');
+    response.clearCookie('User_Session');
+    response.redirect('/');
+  });
+});
+
+
+//server listening
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+
+
+
+
+app.post('/login', async (req, res) => {
+  try {
+     const { email, password } = req.body;
+ 
+     const user = await getUserByEmail(email);
+ 
+     if (!user) {
+       return res.status(404).send('No user found with that email');
+     }
+ 
+     const passwordMatch = await bcrypt.compare(password, user.password);
+ 
+     if (passwordMatch) {
+      session = req.session
+      session.user = req.body
+      console.log(session);
+      session.save()
+      res.cookie('user')
+      message = null
+     return res.redirect('/home-page')
+      
+              
+       
+     } else {
+       console.log('Incorrect password');
+       res.status(401).send('Incorrect password');
+     }
+  } catch (error) {
+     console.error('Error during login:', error.stack);
+ 
+     // Handle the case where setting the cookie or redirecting fails
+     res.status(500).send('Error during login. Please try again.');
+  }
+ });
+ 
+
+
+
+ var shortTermBalance = 0;
+var longTermBalance = 0;
+
+function showPopup(action, type) {
+    document.getElementById('overlay').style.display = 'block';
+    document.getElementById('addWithdrawPopup').style.display = 'block';
+    document.getElementById('popupHeading').innerText = action === 'add' ? 'Add to Savings' : 'Withdraw from Savings';
+
+    document.getElementById('addWithdrawPopup').setAttribute('data-action', action);
+    document.getElementById('addWithdrawPopup').setAttribute('data-type', type);
+}
+
+function hidePopup() {
+    document.getElementById('overlay').style.display = 'none';
+    document.getElementById('addWithdrawPopup').style.display = 'none';
+    document.getElementById('popupAmount').value = '';
+}
+
+function performAction() {
+    var amount = parseFloat(document.getElementById('popupAmount').value) || 0;
+    var action = document.getElementById('addWithdrawPopup').getAttribute('data-action');
+    var type = document.getElementById('addWithdrawPopup').getAttribute('data-type');
+
+    if (amount <= 0 || isNaN(amount)) {
+        alert('Please enter a valid amount.');
+        return;
+    }
+
+    // Update the API endpoint based on the action and type
+    var apiEndpoint = action === 'add' ? '/add-ShortTermSavings' : '/withdraw-ShortTermSavings';
+    if (type === 'longTerm') {
+        apiEndpoint = action === 'add' ? '/add-LongTermSavings' : '/withdraw-LongTermSavings';
+    }
+
+    // Send the savings request to the backend
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', apiEndpoint);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send(JSON.stringify({
+        amount: amount
+    }));
+
+    // Update the balances and last updated labels
+    if (type === 'shortTerm') {
+        if (action === 'add') {
+            shortTermBalance += amount;
+        } else if (action === 'withdraw') {
+            shortTermBalance -= amount;
+        }
+        updateSavingsDisplay('shortTermBalanceLabel', 'shortTermLastUpdatedLabel', shortTermBalance);
+    } else if (type === 'longTerm') {
+        if (action === 'add') {
+            longTermBalance += amount;
+        } else if (action === 'withdraw') {
+            longTermBalance -= amount;
+        }
+        updateSavingsDisplay('longTermBalanceLabel', 'longTermLastUpdatedLabel', longTermBalance);
+    }
+
+    hidePopup();
+}
+
+function updateSavingsDisplay(balanceLabelId, lastUpdatedLabelId, balance) {
+    document.getElementById(balanceLabelId).innerText = 'Balance: KES ' + balance.toFixed(2);
+
+    var currentDate = new Date();
+    var lastUpdated = 'Last Updated: ' + currentDate.toLocaleString();
+    document.getElementById(lastUpdatedLabelId).innerText = lastUpdated;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Call the function to initially display the short-term and long-term savings
+    displayShortTermSavings();
+    displayLongTermSavings();
+});
+
+async function displayShortTermSavings() {
+    try {
+        const response = await fetch('/get-ShortTermSavings', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to retrieve short-term savings');
+        }
+
+        const data = await response.json();
+
+        // Update the HTML element with the retrieved short-term savings
+        updateSavingsDisplay('shortTermBalanceLabel', 'shortTermLastUpdatedLabel', data.shortTermSavingsAmount, data.shortTermLastUpdated);
+    } catch (error) {
+        console.error('Error retrieving short-term savings:', error.message);
+    }
+}
+
+async function displayLongTermSavings() {
+    try {
+        const response = await fetch('/get-LongTermSavings', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to retrieve long-term savings');
+        }
+
+        const data = await response.json();
+
+        // Update the HTML element with the retrieved long-term savings
+        updateSavingsDisplay('longTermBalanceLabel', 'longTermLastUpdatedLabel', data.longTermSavingsAmount, data.longTermLastUpdated);
+    } catch (error) {
+        console.error('Error retrieving long-term savings:', error.message);
+    }
+}
+
+
+async function displayShortTermSavings() {
+    try {
+        const response = await fetch('/get-ShortTermSavings', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to retrieve short-term savings');
+        }
+
+        const data = await response.json();
+
+        // Update the HTML element with the retrieved short-term savings
+        updateSavingsDisplay('shortTermBalanceLabel', 'shortTermLastUpdatedLabel', data.shortTermSavingsAmount, data.shortTermLastUpdated);
+    } catch (error) {
+        console.error('Error retrieving short-term savings:', error.message);
+    }
+}
+
+async function displayLongTermSavings() {
+    try {
+        const response = await fetch('/get-LongTermSavings', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to retrieve long-term savings');
+        }
+
+        const data = await response.json();
+
+        // Update the HTML element with the retrieved long-term savings
+        updateSavingsDisplay('longTermBalanceLabel', 'longTermLastUpdatedLabel', data.longTermSavingsAmount, data.longTermLastUpdated);
+    } catch (error) {
+        console.error('Error retrieving long-term savings:', error.message);
+    }
+}
+
+
+async function sendLongTermLoanData(longTermBalance, dueDate) {
+  try {
+    const response = await fetch('/save-long-loan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ balance: longTermBalance, dueDate }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to save long-term loan data');
+    }
+
+    console.log('Long-term loan data saved successfully');
+  } catch (error) {
+    console.error('Error saving long-term loan data:', error.message);
+  }
+}
+
+
+
+
+
+
+    displayLongTermLoan();
+    displayShortTermLoan();
+
+var shortTermLoanBalance = 0;
+var longTermLoanBalance = 0;
+
+// Function to retrieve and display long-term loan balance
+async function displayLongTermLoan() {
+  try {
+    const response = await fetch('/get-long-loan', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to retrieve long-term loan balance');
+    }
+
+    const data = await response.json();
+    longTermLoanBalance = data.balance;
+
+    // Update the HTML elements with the retrieved long-term loan balance
+    updateLoanDisplay('longTermLoanBalanceLabel', 'longTermLoanLastUpdatedLabel', longTermLoanBalance, data.dueDate);
+  } catch (error) {
+    console.error('Error retrieving long-term loan balance:', error.message);
+  }
+}
+
+// Function to retrieve and display short-term loan balance
+async function displayShortTermLoan() {
+  try {
+    const response = await fetch('/get-short-loan', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to retrieve short-term loan balance');
+    }
+
+    const data = await response.json();
+    shortTermLoanBalance = data.balance;
+
+    // Update the HTML elements with the retrieved short-term loan balance
+    updateLoanDisplay('shortTermLoanBalanceLabel', 'shortTermLoanLastUpdatedLabel', shortTermLoanBalance, data.dueDate);
+  } catch (error) {
+    console.error('Error retrieving short-term loan balance:', error.message);
+  }
+}
+
+// Function to show loan-related popup
+function showPopup(action, type) {
+  document.getElementById('overlay').style.display = 'block';
+  document.getElementById('addWithdrawPopup').style.display = 'block';
+  document.getElementById('popupHeading').innerText = action === 'add' ? 'Add to Loan' : 'Repay Loan';
+
+  document.getElementById('addWithdrawPopup').setAttribute('data-action', action);
+  document.getElementById('addWithdrawPopup').setAttribute('data-type', type);
+}
+
+// Function to hide loan-related popup
+function hidePopup() {
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('addWithdrawPopup').style.display = 'none';
+}
+
+// Function to perform loan action (add or repay)
+async function performLoanAction() {
+  var amount = parseFloat(document.getElementById('popupAmount').value) || 0;
+  var dueDate = document.getElementById('popupDueDate').value;
+  var action = document.getElementById('addWithdrawPopup').getAttribute('data-action');
+  var type = document.getElementById('addWithdrawPopup').getAttribute('data-type');
+
+  if (amount <= 0 || isNaN(amount) || !dueDate) {
+    alert('Please enter a valid amount and due date.');
+    return;
+  }
+
+  if (type === 'shortTermLoans') {
+    if (action === 'add') {
+      shortTermLoanBalance += amount; // Add to the loan balance
+    } else if (action === 'repay') {
+      shortTermLoanBalance -= amount; // Deduct from the loan balance
+    }
+    updateLoanDisplay('shortTermLoanBalanceLabel', 'shortTermLoanLastUpdatedLabel', shortTermLoanBalance, dueDate);
+  } else if (type === 'longTermLoans') {
+    if (action === 'add') {
+      longTermLoanBalance += amount; // Add to the loan balance
+    } else if (action === 'repay') {
+      longTermLoanBalance -= amount; // Deduct from the loan balance
+    }
+    updateLoanDisplay('longTermLoanBalanceLabel', 'longTermLoanLastUpdatedLabel', longTermLoanBalance, dueDate);
+  }
+
+  hidePopup();
+}
+
+// Function to update loan display
+function updateLoanDisplay(balanceLabelId, lastUpdatedLabelId, balance, dueDate) {
+  document.getElementById(balanceLabelId).innerText = 'Loan Balance: KES ' + balance.toFixed(2);
+  document.getElementById(lastUpdatedLabelId).innerText = 'Due Date: ' + (dueDate || '-');
+}
+
+
+const response = await fetch('/add-shortTermLoan', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    shortTermLoanBalance:shortTermLoanBalance,
+    dueDate:dueDate,
+  }),
+});
+
+if (!response.ok) {
+  throw new Error('Failed to update loan data on the server');
+}
+
+console.log('Loan data updated successfully on the server');
+
+function updateLoanDisplay(balanceLabelId, lastUpdatedLabelId, balance, dueDate) {
+  document.getElementById(balanceLabelId).innerText = 'Loan Balance: KES ' + balance.toFixed(2);
+  document.getElementById(lastUpdatedLabelId).innerText = 'Due Date: ' + dueDate;
+}
+
+
